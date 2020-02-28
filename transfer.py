@@ -24,7 +24,8 @@ class MainWindow(QtWidgets.QStackedWidget):
         self.port = None
         self.deviceConnected = False
 
-        self.ser = serial.serial_for_url('loop://', timeout=1)
+        self.ser = serial.serial_for_url('loop://', timeout=1, baudrate=115200)
+        #self.ser.set_buffer_size(rx_size=1000000, tx_size=1000000)
         self.ser.write(bytes('Test', encoding='ascii'))
         time.sleep(0.5)
         print(self.ser.read_all())
@@ -33,7 +34,7 @@ class MainWindow(QtWidgets.QStackedWidget):
         self.waitingLabel.setSizePolicy(QtWidgets.QSizePolicy.Expanding,QtWidgets.QSizePolicy.Expanding)
         self.waitingLabel.setAlignment(QtCore.Qt.AlignCenter)
 
-        self.transferPage = TransferPage()
+        self.transferPage = TransferPage(self.ser)
 
         self.checkSerialTimer = QtCore.QTimer()
         self.checkSerialTimer.timeout.connect(self.checkSerial)
@@ -61,8 +62,10 @@ class MainWindow(QtWidgets.QStackedWidget):
 
 class TransferPage(QtWidgets.QWidget):
 
-    def __init__(self):
+    def __init__(self, ser):
         super().__init__()
+
+        self.ser = ser  # Parent.ser?
 
         self.vBox = QtWidgets.QVBoxLayout()
         self.hBox_u = QtWidgets.QHBoxLayout()
@@ -90,31 +93,40 @@ class TransferPage(QtWidgets.QWidget):
         self.hBox_b.addWidget(self.deleteButton)
 
         self.setLayout(self.vBox)
+        self.sendTestData()
+        time.sleep(0.5)
+        test = self.getData()
+        print(test)
 
-        employees = {}
+    def sendTestData(self):
+
+        employeeData = {}
 
         for folder in os.listdir(r'./csvs'):
             files = []
-            employees[folder] = files
-
-            for fName in os.listdir(r'./csvs/'+folder):
-                with open(os.path.join(r'./csvs/'+folder, fName)) as f:
+            for fName in os.listdir(r'./csvs/' + folder):
+                with open(os.path.join(r'./csvs/' + folder, fName)) as f:
 
                     timestamps = []
                     magData = []
 
-                    reader = csv.DictReader(f, fieldnames=['Timestamp', 'MagData'])
+                    reader = csv.DictReader(f, fieldnames=["Timestamp", "MagData"])
+                    next(reader, None)
                     for row in reader:
-                        timestamps.append(row['Timestamp'])
-                        magData.append(row['MagData'])
+                        timestamps.append(row["Timestamp"])
+                        magData.append(row["MagData"])
 
-                    data = {}
+                    data = {"fName": fName, "Timestamps": timestamps, "MagData": magData}
+                    files.append(data)
 
-    def sendTestData(self):
-        pass
+            employeeData[folder] = files
+
+        testData = bytes(str(employeeData), encoding='ascii')
+        self.ser.write(testData)
 
     def getData(self):
-        pass
+        data = self.ser.read_all()
+        return json.loads(data.replace(b"'", b'"').decode('ascii'))
 
 
 
