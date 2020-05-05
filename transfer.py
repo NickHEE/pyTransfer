@@ -14,7 +14,6 @@ pid = 14155
 # 	]
 # }
 
-
 class MainWindow(QtWidgets.QStackedWidget):
 
     def __init__(self):
